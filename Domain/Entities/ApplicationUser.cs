@@ -38,5 +38,11 @@ namespace Domain.Entities
         //both coach and student
         public string? PhoneNumber { get; set; }
 
+        //for qr code
+        public string QrCodeValue { get; set; }
+        public string QrCodeImageBase64 { get; set; }
+
+
+
     }
 }

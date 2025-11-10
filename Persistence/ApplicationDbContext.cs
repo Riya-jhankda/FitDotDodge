@@ -21,6 +21,7 @@ namespace Persistence
         public DbSet<Class> Classes { get; set; }
         public DbSet<ScannerDevice> ScannerDevices { get; set; }
         public DbSet<ClassEnrollment> ClassEnrollments { get; set; }
+        public DbSet<Attendance> Attendances { get; set; }
 
 
 
@@ -110,8 +111,36 @@ namespace Persistence
                     .HasForeignKey(e => e.ClassId);
 
             });
+            // ==== Attendance ====
+            modelBuilder.Entity<Attendance>(entity =>
+            {
+                entity.ToTable("Attendances");
 
-           
+                entity.HasKey(a => a.AttendanceId);
+
+                // Prevent duplicate attendance for same user+class+date
+                entity.HasIndex(a => new { a.UserId, a.ClassId, a.Date })
+                      .IsUnique();
+
+                entity.Property(a => a.IsPresent)
+                      .IsRequired();
+
+                entity.Property(a => a.Date)
+                      .HasColumnType("date"); // only date, no time part
+
+                entity.HasOne(a => a.User)
+                      .WithMany() // or .WithMany(u => u.Attendances) if you add a collection later
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(a => a.Class)
+                      .WithMany() // or .WithMany(c => c.Attendances)
+                      .HasForeignKey(a => a.ClassId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+
+
         }
 
 

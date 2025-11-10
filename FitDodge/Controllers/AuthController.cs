@@ -47,8 +47,8 @@ namespace FitDodge.Controllers
             var roles = await _userManager.GetRolesAsync(user);
 
             // Only SuperAdmin or Admin can log in
-            if (!roles.Contains(UserRole.SuperAdmin) && !roles.Contains(UserRole.Admin))
-                return Unauthorized("Only Admins or SuperAdmin can log in.");
+            //if (!roles.Contains(UserRole.SuperAdmin) && !roles.Contains(UserRole.Admin))
+            //    return Unauthorized("Only Admins or SuperAdmin can log in.");
 
             var token = GenerateJwtToken(user, roles);
 

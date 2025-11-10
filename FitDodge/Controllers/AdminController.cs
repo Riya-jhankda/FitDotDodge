@@ -197,7 +197,7 @@ namespace FitDodge.Controllers
 
         //add users to class 
         [HttpPost("admin/add-user-to-class")]
-        //[Authorize(Roles = UserRole.Admin)]
+        [Authorize(Roles = UserRole.Admin)]
         public async Task<IActionResult> AddUserToClass([FromBody] AddUserToClassDto dto)
         {
             // 1. Get currently logged-in Admin

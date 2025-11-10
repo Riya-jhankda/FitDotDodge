@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
+
 // Register ApplicationDbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -53,6 +54,8 @@ builder.Services.AddAuthentication(options =>
 
 // Ensure that the 'EmailService' class implements the 'IEmailService' interface
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 
 
 builder.Services.AddControllers();
