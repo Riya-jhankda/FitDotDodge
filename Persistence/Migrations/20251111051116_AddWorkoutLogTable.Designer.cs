@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence;
 
@@ -11,9 +12,11 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251111051116_AddWorkoutLogTable")]
+    partial class AddWorkoutLogTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,6 +165,9 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<Guid>("ClassId")
                         .HasColumnType("uniqueidentifier");
 
@@ -176,6 +182,8 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("AttendanceId");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("ClassId");
 
@@ -199,22 +207,13 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CoachNote")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Info")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("NoteLastUpdated")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("SchoolName")
                         .IsRequired()
@@ -236,6 +235,9 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<Guid>("ClassId")
                         .HasColumnType("uniqueidentifier");
 
@@ -251,6 +253,8 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("EnrollmentId");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("ClassId");
 
@@ -479,6 +483,10 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Attendance", b =>
                 {
+                    b.HasOne("Domain.Entities.ApplicationUser", null)
+                        .WithMany("Attendances")
+                        .HasForeignKey("ApplicationUserId");
+
                     b.HasOne("Domain.Entities.Class", "Class")
                         .WithMany()
                         .HasForeignKey("ClassId")
@@ -486,7 +494,7 @@ namespace Persistence.Migrations
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.ApplicationUser", "User")
-                        .WithMany("Attendances")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -509,16 +517,20 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.ClassEnrollment", b =>
                 {
+                    b.HasOne("Domain.Entities.ApplicationUser", null)
+                        .WithMany("ClassEnrollments")
+                        .HasForeignKey("ApplicationUserId");
+
                     b.HasOne("Domain.Entities.Class", "Class")
                         .WithMany()
                         .HasForeignKey("ClassId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.ApplicationUser", "User")
-                        .WithMany("ClassEnrollments")
+                        .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Class");

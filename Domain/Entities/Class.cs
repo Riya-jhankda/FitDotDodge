@@ -30,9 +30,16 @@ namespace Domain.Entities
         public ClassType ClassType { get; set; }
 
         public string SchoolName { get; set; }
-        
 
 
+        // ---- NEW FIELDS ----
+        // Coach's short note / announcement for the class (overwritten on update)
+        public string? CoachNote { get; set; }
+
+        // Extra class info / description
+        public string? Info { get; set; }
+
+        public DateTime? NoteLastUpdated { get; set; }
 
 
     }

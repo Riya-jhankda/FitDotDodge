@@ -22,6 +22,8 @@ namespace Persistence
         public DbSet<ScannerDevice> ScannerDevices { get; set; }
         public DbSet<ClassEnrollment> ClassEnrollments { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
+        public DbSet<WorkoutLog> WorkoutLogs { get; set; }
+
 
 
 
@@ -99,18 +101,20 @@ namespace Persistence
 
             });
 
-            //====ClassEnrollment====
+            // ==== ClassEnrollment ====
             modelBuilder.Entity<ClassEnrollment>(entity =>
             {
                 entity.HasOne(e => e.User)
-                       .WithMany() // or .WithMany(u => u.ClassEnrollments) if you add collection
-                       .HasForeignKey(e => e.UserId);
+                      .WithMany(u => u.ClassEnrollments) // ✅ connect to collection
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Class)
-                    .WithMany() // or .WithMany(c => c.Enrollments)
-                    .HasForeignKey(e => e.ClassId);
-
+                      .WithMany() // you can later add c.Enrollments
+                      .HasForeignKey(e => e.ClassId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
+
             // ==== Attendance ====
             modelBuilder.Entity<Attendance>(entity =>
             {
@@ -118,26 +122,47 @@ namespace Persistence
 
                 entity.HasKey(a => a.AttendanceId);
 
-                // Prevent duplicate attendance for same user+class+date
-                entity.HasIndex(a => new { a.UserId, a.ClassId, a.Date })
-                      .IsUnique();
+                entity.HasIndex(a => new { a.UserId, a.ClassId, a.Date }).IsUnique();
 
-                entity.Property(a => a.IsPresent)
-                      .IsRequired();
-
-                entity.Property(a => a.Date)
-                      .HasColumnType("date"); // only date, no time part
+                entity.Property(a => a.IsPresent).IsRequired();
+                entity.Property(a => a.Date).HasColumnType("date");
 
                 entity.HasOne(a => a.User)
-                      .WithMany() // or .WithMany(u => u.Attendances) if you add a collection later
+                      .WithMany(u => u.Attendances) // ✅ connect to collection
                       .HasForeignKey(a => a.UserId)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(a => a.Class)
-                      .WithMany() // or .WithMany(c => c.Attendances)
+                      .WithMany()
                       .HasForeignKey(a => a.ClassId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
+
+
+            // ==== WorkoutLog ====
+            modelBuilder.Entity<WorkoutLog>(entity =>
+            {
+                entity.ToTable("WorkoutLogs");
+
+                entity.HasKey(w => w.Id);
+
+                entity.HasOne(w => w.User)
+                      .WithMany() // you can later add u.WorkoutLogs collection if needed
+                      .HasForeignKey(w => w.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(w => w.Category)
+                      .HasMaxLength(100)
+                      .IsRequired();
+
+                entity.Property(w => w.ExerciseName)
+                      .HasMaxLength(150)
+                      .IsRequired();
+
+                entity.Property(w => w.LoggedDate)
+                      .HasColumnType("datetime");
+            });
+
 
 
 

@@ -1,12 +1,13 @@
 ﻿using Application.DTO;
 using Application.Interfaces;
 using Domain.Entities;
+using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
-using Domain.Entities;
+using System.Security.Claims;
 
 namespace FitDodge.Controllers
 {
@@ -89,7 +90,99 @@ namespace FitDodge.Controllers
             });
         }
 
+        [HttpGet("{classId}/enrolled-users")]
+        public async Task<IActionResult> GetEnrolledUsers(Guid classId)
+        {
+            var classEntity = await _db.Classes
+                .Include(c => c.Coach)
+                .FirstOrDefaultAsync(c => c.ClassId == classId);
 
+            if (classEntity == null)
+                return NotFound("Class not found");
+
+            var enrollments = await _db.ClassEnrollments
+                .Include(e => e.User)
+                .Where(e => e.ClassId == classId && e.Status == "Active")
+                .Select(e => new
+                {
+                    e.User.Id,
+                    e.User.UserName,
+                    e.User.Email,
+                    e.User.Gender,
+                    //e.User.ProfileImageUrl, // assuming you have a column for image path or URL
+                    e.EnrolledOn
+                })
+                .ToListAsync();
+
+            var response = new
+            {
+                classEntity.ClassId,
+                classEntity.Name,
+                CoachName = classEntity.Coach?.UserName,
+                classEntity.ClassType,
+                classEntity.StartTime,
+                classEntity.EndTime,
+                TotalEnrolled = enrollments.Count,
+                EnrolledUsers = enrollments
+            };
+
+            return Ok(response);
+        }
+
+        // Only Coach of this class or Admin can create/update
+        [Authorize(Roles = "Coach,Admin")]
+        [HttpPost("{classId}/note")]
+        public async Task<IActionResult> UpsertClassNote(Guid classId, [FromBody] UpsertClassNoteDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var classEntity = await _db.Classes
+                .Include(c => c.Coach)
+                .FirstOrDefaultAsync(c => c.ClassId == classId);
+
+            if (classEntity == null) return NotFound("Class not found.");
+
+            // If user is not Admin, ensure they are the coach of the class
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin && classEntity.CoachId != userId)
+                return Forbid("Only the coach for this class or an admin can update notes.");
+
+            // Update fields (overwrite)
+            classEntity.CoachNote = dto.CoachNote;
+            classEntity.Info = dto.Info;
+            classEntity.NoteLastUpdated = DateTime.UtcNow;
+
+            _db.Classes.Update(classEntity);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Class note updated." });
+        }
+
+        // Only Coach of this class or Admin can delete/clear note
+        [Authorize(Roles = "Coach,Admin")]
+        [HttpDelete("{classId}/note")]
+        public async Task<IActionResult> DeleteClassNote(Guid classId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var classEntity = await _db.Classes.FirstOrDefaultAsync(c => c.ClassId == classId);
+            if (classEntity == null) return NotFound("Class not found.");
+
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin && classEntity.CoachId != userId)
+                return Forbid("Only the coach for this class or an admin can delete notes.");
+
+            classEntity.CoachNote = null;
+            classEntity.Info = null;
+            classEntity.NoteLastUpdated = DateTime.UtcNow;
+
+            _db.Classes.Update(classEntity);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Class note cleared." });
+        }
 
 
     }

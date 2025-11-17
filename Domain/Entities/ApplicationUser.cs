@@ -39,8 +39,18 @@ namespace Domain.Entities
         public string? PhoneNumber { get; set; }
 
         //for qr code
-        public string QrCodeValue { get; set; }
-        public string QrCodeImageBase64 { get; set; }
+        public string? QrCodeValue { get; set; }
+        public string? QrCodeImageBase64 { get; set; }
+
+        //to calculate waist/hip ratio
+        public double? Waist { get; set; }
+        public double? Hip { get; set; }
+
+        // relationships
+        public ICollection<ClassEnrollment> ClassEnrollments { get; set; } = new List<ClassEnrollment>();
+        public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+
+
 
 
 
