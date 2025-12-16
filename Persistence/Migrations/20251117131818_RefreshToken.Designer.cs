@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence;
 
@@ -11,9 +12,11 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251117131818_RefreshToken")]
+    partial class RefreshToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -274,6 +277,7 @@ namespace Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("ReplacedByToken")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("Revoked")
@@ -299,10 +303,6 @@ namespace Persistence.Migrations
                     b.Property<Guid>("ScanId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ApiKey")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(150)
@@ -538,7 +538,7 @@ namespace Persistence.Migrations
             modelBuilder.Entity("Domain.Entities.Class", b =>
                 {
                     b.HasOne("Domain.Entities.ApplicationUser", "Coach")
-                        .WithMany("ClassesAssigned")
+                        .WithMany()
                         .HasForeignKey("CoachId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -654,8 +654,6 @@ namespace Persistence.Migrations
                     b.Navigation("Attendances");
 
                     b.Navigation("ClassEnrollments");
-
-                    b.Navigation("ClassesAssigned");
 
                     b.Navigation("RefreshTokens");
                 });

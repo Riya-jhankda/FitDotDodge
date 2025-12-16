@@ -8,8 +8,10 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Persistence;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace FitDodge.Controllers
@@ -21,14 +23,50 @@ namespace FitDodge.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _config; 
         private readonly IEmailService _emailService;
+        private readonly ApplicationDbContext _db;
 
-
-        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration config,  IEmailService emailService)
+        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration config,  IEmailService emailService, ApplicationDbContext db)
         {
             _userManager = userManager;
             _config = config;
             _emailService = emailService;
+            _db = db;
+
         }
+
+        //[HttpPost("login")]
+        //public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        //{
+        //    var user = await _userManager.FindByEmailAsync(dto.Email);
+
+        //    if (user == null)
+        //        return Unauthorized("Invalid credentials.");
+
+        //    if (!user.EmailConfirmed || !user.IsApproved)
+        //        return Unauthorized("Your account is not approved yet.");
+
+        //    if (!await _userManager.CheckPasswordAsync(user, dto.Password))
+        //        return Unauthorized("Invalid credentials.");
+
+        //    var roles = await _userManager.GetRolesAsync(user);
+
+        //    // Only SuperAdmin or Admin can log in
+        //    //if (!roles.Contains(UserRole.SuperAdmin) && !roles.Contains(UserRole.Admin))
+        //    //    return Unauthorized("Only Admins or SuperAdmin can log in.");
+
+        //    var token = GenerateJwtToken(user, roles);
+
+        //    // if superadmin, no school name
+        //    var response = new
+        //    {
+        //        token,
+        //        role = roles.First(),
+        //        email = user.Email,
+        //        school = roles.Contains(UserRole.SuperAdmin) ? null : user.SchoolName
+        //    };
+
+        //    return Ok(response);
+        //}
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
@@ -46,16 +84,23 @@ namespace FitDodge.Controllers
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            // Only SuperAdmin or Admin can log in
-            //if (!roles.Contains(UserRole.SuperAdmin) && !roles.Contains(UserRole.Admin))
-            //    return Unauthorized("Only Admins or SuperAdmin can log in.");
+            // ---- 1. Generate Access Token (JWT) ----
+            var accessToken = GenerateJwtToken(user, roles);
 
-            var token = GenerateJwtToken(user, roles);
+            // ---- 2. Create Refresh Token ----
+            var refreshToken = GenerateRefreshToken(GetIpAddress());
+            refreshToken.UserId = user.Id;
 
-            // if superadmin, no school name
+            // ---- 3. Save Refresh Token to DB ----
+            await _db.RefreshTokens.AddAsync(refreshToken);
+            await _db.SaveChangesAsync();
+
+            // ---- 4. Response ----
             var response = new
             {
-                token,
+                accessToken,
+                refreshToken = refreshToken.Token,
+                expiresIn = _config.GetValue<int>("JwtSettings:AccessTokenExpirationMinutes"),
                 role = roles.First(),
                 email = user.Email,
                 school = roles.Contains(UserRole.SuperAdmin) ? null : user.SchoolName
@@ -63,6 +108,8 @@ namespace FitDodge.Controllers
 
             return Ok(response);
         }
+
+       
 
 
         private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
@@ -323,6 +370,90 @@ namespace FitDodge.Controllers
 
             return Ok("Password has been reset successfully.");
         }
+
+
+
+        private RefreshToken GenerateRefreshToken(string ipAddress)
+        {
+            var randomBytes = new byte[64];
+            using (var rng = RandomNumberGenerator.Create())
+                rng.GetBytes(randomBytes);
+
+            return new RefreshToken
+            {
+                Token = Convert.ToBase64String(randomBytes),
+                Expires = DateTime.UtcNow.AddDays(7),
+                CreatedByIp = ipAddress
+            };
+        }
+
+        private string GetIpAddress()
+        {
+            if (Request.Headers.ContainsKey("X-Forwarded-For"))
+                return Request.Headers["X-Forwarded-For"];
+            return HttpContext.Connection.RemoteIpAddress?.ToString();
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.RefreshToken))
+                return BadRequest("Refresh token required.");
+
+            var existing = await _db.RefreshTokens
+                .Include(r => r.User)
+                .FirstOrDefaultAsync(r => r.Token == dto.RefreshToken);
+
+            if (existing == null || existing.IsExpired || existing.IsRevoked)
+                return Unauthorized("Invalid refresh token.");
+
+            // Rotate (replace) token
+            var newRefresh = GenerateRefreshToken(GetIpAddress());
+            newRefresh.UserId = existing.UserId;
+
+            existing.Revoked = DateTime.UtcNow;
+            existing.ReplacedByToken = newRefresh.Token;
+
+            _db.RefreshTokens.Update(existing);
+            await _db.RefreshTokens.AddAsync(newRefresh);
+            await _db.SaveChangesAsync();
+
+            var roles = await _userManager.GetRolesAsync(existing.User);
+            var newAccessToken = GenerateJwtToken(existing.User, roles);
+
+            return Ok(new
+            {
+                accessToken = newAccessToken,
+                refreshToken = newRefresh.Token,
+                expiresIn = _config.GetValue<int>("JwtSettings:AccessTokenExpirationMinutes")
+            });
+        }
+
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var rt = await _db.RefreshTokens
+                .FirstOrDefaultAsync(t => t.Token == dto.RefreshToken && t.UserId == userId);
+
+            if (rt == null)
+                return NotFound("Refresh token not found.");
+
+            if (!rt.IsRevoked)
+            {
+                rt.Revoked = DateTime.UtcNow;
+                _db.RefreshTokens.Update(rt);
+                await _db.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Logged out successfully." });
+        }
+
+
+
+       
 
     }
 

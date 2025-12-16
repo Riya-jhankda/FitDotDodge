@@ -248,25 +248,40 @@ namespace FitDodge.Controllers
             return Ok(response);
         }
 
-        [HttpPut("EditProfile/{id}")]
-        public async Task<IActionResult> UpdateUserProfile(string id, [FromBody] UpdateUserProfileDto dto)
+        [Authorize]
+        [HttpPut("edit-profile")]
+        public async Task<IActionResult> UpdateUserProfile([FromBody] UpdateUserProfileDto dto)
         {
-            var user = await _db.Users.FindAsync(id);
+            var userId = User.Claims.FirstOrDefault(c => c.Type == "id")?.Value;
+            if (userId == null)
+                return Unauthorized("Unable to identify the logged-in user.");
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null)
                 return NotFound("User not found");
 
-            // Update only allowed fields
-            user.UserName = dto.UserName ?? user.UserName;
+            // Update allowed fields
+            user.UserName = dto.FullName ?? user.UserName;
             user.Email = dto.Email ?? user.Email;
+            user.NormalizedEmail = dto.Email?.ToUpper() ?? user.NormalizedEmail;
+
+            user.PhoneNumber = dto.PhoneNumber ?? user.PhoneNumber;
             user.Gender = dto.Gender ?? user.Gender;
+            user.DateOfBirth = dto.DateOfBirth ?? user.DateOfBirth;
             user.Height = dto.Height ?? user.Height;
             user.Weight = dto.Weight ?? user.Weight;
 
-            _db.Users.Update(user);
+            // Location → SchoolName (if allowed)
+            user.SchoolName = dto.Location ?? user.SchoolName;
+
+            // Profile picture
+            user.ProfilePictureUrl = dto.ProfilePictureUrl ?? user.ProfilePictureUrl;
+
             await _db.SaveChangesAsync();
 
-            return Ok(new { message = "Profile updated successfully" });
+            return Ok(new { message = "Profile updated successfully." });
         }
+
 
         [HttpPost("WorkoutLog")]
         public async Task<IActionResult> AddWorkoutLog([FromBody] AddWorkoutLogDto dto)

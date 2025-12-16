@@ -50,6 +50,12 @@ namespace Domain.Entities
         public ICollection<ClassEnrollment> ClassEnrollments { get; set; } = new List<ClassEnrollment>();
         public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
 
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+        //1 coachro many class but 1 class has only 1 coach
+        public ICollection<Class> ClassesAssigned { get; set; } = new List<Class>();
+
+
 
 
 

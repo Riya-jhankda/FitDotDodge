@@ -18,6 +18,9 @@ namespace Domain.Entities
         public Guid SchoolId { get; set; }
         public School School { get; set; }
 
+        public string ApiKey { get; set; }
+
+
     }
 
 }

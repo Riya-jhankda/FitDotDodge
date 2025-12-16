@@ -23,6 +23,8 @@ namespace Persistence
         public DbSet<ClassEnrollment> ClassEnrollments { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<WorkoutLog> WorkoutLogs { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
 
 
 
@@ -78,7 +80,7 @@ namespace Persistence
                       .HasMaxLength(150);
 
                 entity.HasOne(c => c.Coach)
-                      .WithMany() // if you later add a Coach.Classes collection, change to .WithMany(x => x.Classes)
+                      .WithMany(u => u.ClassesAssigned)   // ⭐ 
                       .HasForeignKey(c => c.CoachId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
@@ -162,6 +164,30 @@ namespace Persistence
                 entity.Property(w => w.LoggedDate)
                       .HasColumnType("datetime");
             });
+
+            // ==== RefreshToken ====
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.ToTable("RefreshTokens");
+
+                entity.HasKey(r => r.Id);
+
+                entity.Property(r => r.Token)
+                      .IsRequired();
+
+                entity.Property(r => r.Expires)
+                      .IsRequired();
+
+                entity.Property(r => r.CreatedByIp)
+                      .HasMaxLength(100);
+
+                // Relation: RefreshToken -> ApplicationUser
+                entity.HasOne(r => r.User)
+                      .WithMany(u => u.RefreshTokens)   // 👈 Add this collection to ApplicationUser
+                      .HasForeignKey(r => r.UserId)
+                      .OnDelete(DeleteBehavior.Cascade); // If user is deleted → remove tokens
+            });
+
 
 
 
